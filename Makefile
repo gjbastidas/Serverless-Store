@@ -5,6 +5,7 @@ tf-destroy-dev:
 	@ cd "$$DEV_INFRA_PATH" && \
 		terraform destroy
 
+tf-apply-dev:
 	@ cd "$$DEV_INFRA_PATH" && \
 		terraform apply plan.out
 
