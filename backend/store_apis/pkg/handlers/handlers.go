@@ -20,3 +20,5 @@ func ProductsHandler(ctx context.Context, request events.APIGatewayProxyRequest)
 		return utils.Send(500, err.Error()), err
 	}
 }
+
+// TODO: make handlers for orders and baskets
