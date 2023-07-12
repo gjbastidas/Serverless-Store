@@ -3,19 +3,19 @@ resource "aws_apigatewayv2_api" "main" {
   protocol_type = "HTTP"
 }
 
-resource "aws_cloudwatch_log_group" "main_api_gw" {
+resource "aws_cloudwatch_log_group" "log" {
   name              = "/aws/api-gw/${aws_apigatewayv2_api.main.name}"
   retention_in_days = var.cloudwatch_log_retention_in_days
 }
 
-resource "aws_apigatewayv2_stage" "dev" {
+resource "aws_apigatewayv2_stage" "stage" {
   api_id = aws_apigatewayv2_api.main.id
 
   name        = var.environment
   auto_deploy = true
 
   access_log_settings {
-    destination_arn = aws_cloudwatch_log_group.main_api_gw.arn
+    destination_arn = aws_cloudwatch_log_group.log.arn
 
     format = jsonencode({
       requestId               = "$context.requestId"
