@@ -1,5 +1,5 @@
 resource "aws_apigatewayv2_api" "main" {
-  name          = format("%s-%s-%s", var.environment, var.solution_name, var.function_name)
+  name          = format("%s-%s", var.environment, var.solution_name)
   protocol_type = "HTTP"
 }
 

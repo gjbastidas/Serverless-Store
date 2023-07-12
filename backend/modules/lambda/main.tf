@@ -3,20 +3,6 @@ resource "aws_cloudwatch_log_group" "for_lambda" {
   retention_in_days = var.cloudwatch_log_retention_in_days
 }
 
-data "aws_iam_policy_document" "for_logs_access" {
-  statement {
-    effect = "Allow"
-    actions = [
-      "logs:CreateLogStream",
-      "logs:PutLogEvents",
-    ]
-
-    resources = [
-      aws_cloudwatch_log_group.for_products_lambda.arn,
-    ]
-  }
-}
-
 resource "aws_iam_policy" "for_logs_access" {
   name        = format("%s-%s-%s-%s", var.environment, var.solution_name, var.function_name, "for-log-access")
   description = "role policy for ${var.function_name} lambda for cloudwatch logs access"
@@ -32,7 +18,7 @@ locals {
   binary_name   = "app"
   src_path      = "${var.source_path}/main.go"
   bin_path      = "${var.source_path}/bin/${local.binary_name}"
-  archive_path  = "${var.source_path}/archive/${local.binary_name}.${archive_type}"
+  archive_path  = "${var.source_path}/archive/${local.binary_name}.${var.archive_type}"
   function_name = format("%s-%s-%s", var.environment, var.solution_name, var.function_name)
 }
 
@@ -53,7 +39,7 @@ data "archive_file" "zip" {
 resource "aws_lambda_function" "function" {
   function_name    = local.function_name
   description      = "${var.function_name} lambda"
-  role             = var.role_arn
+  role             = data.aws_iam_role.role.arn
   handler          = local.binary_name
   runtime          = var.runtime
   memory_size      = var.memory_size

@@ -11,6 +11,6 @@ resource "aws_iam_policy" "for_lambda" {
 }
 
 resource "aws_iam_role_policy_attachment" "for_lambda" {
-  role       = aws_iam_role.for_products_lambda.id
-  policy_arn = aws_iam_policy.for_products_lambda.arn
+  role       = aws_iam_role.for_lambda.id
+  policy_arn = aws_iam_policy.for_lambda.arn
 }

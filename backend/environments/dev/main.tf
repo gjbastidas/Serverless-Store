@@ -59,7 +59,7 @@ module "products_lambda" {
 
   environment   = var.environment
   solution_name = var.solution_name
-  role_id       = module.role_for_products_lambda.id
+  role_id       = module.role_for_products_lambda.role_id
   function_name = "products"
   source_path   = "../../store_apis/cmd/lambdas/products"
 }
