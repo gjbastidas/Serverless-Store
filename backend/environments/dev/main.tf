@@ -1,6 +1,6 @@
-######################
-##     Database     ##
-######################
+####################
+#     Database     #
+####################
 
 module "products_table" {
   source  = "terraform-aws-modules/dynamodb-table/aws"
@@ -23,31 +23,19 @@ module "products_table" {
   ]
 }
 
-######################
-##   Permissions    ##
-######################
-
-data "aws_iam_policy_document" "to_assume_lambda_service_role" {
-  statement {
-    actions = ["sts:AssumeRole"]
-
-    principals {
-      type        = "Service"
-      identifiers = ["lambda.amazonaws.com"]
-    }
-  }
-}
+####################
+#   Permissions    #
+####################
 
 data "aws_iam_policy_document" "for_products_lambda" {
   statement {
     effect = "Allow"
     actions = [
-      "logs:CreateLogStream",
-      "logs:PutLogEvents",
+      "dynamodb:PutItem",
     ]
 
     resources = [
-      "arn:aws:logs:*:*:*",
+      module.products_table.dynamodb_table_arn,
     ]
   }
 }
@@ -62,9 +50,9 @@ module "role_for_products_lambda" {
   role_policy_document        = data.aws_iam_policy_document.for_products_lambda.json
 }
 
-######################
-##    Functions     ##
-######################
+####################
+#    Functions     #
+####################
 
 module "products_lambda" {
   source = "../../modules/lambda"
@@ -74,4 +62,30 @@ module "products_lambda" {
   role_id       = module.role_for_products_lambda.id
   function_name = "products"
   source_path   = "../../store_apis/cmd/lambdas/products"
+}
+
+####################
+#   API Gateway    #
+####################
+
+module "api_gw" {
+  source = "../../modules/api_gateway"
+
+  environment   = var.environment
+  solution_name = var.solution_name
+}
+
+################################
+#   API Gateway Integrations   #
+################################
+
+module "products_lambda_integration" {
+  source = "../../modules/api_gateway_lambda_integration"
+
+  api_id            = module.api_gw.api_id
+  api_execution_arn = module.api_gw.api_execution_arn
+  integration_type  = "AWS_PROXY"
+  integration_uri   = module.products_lambda.invoke_arn
+  function_name     = module.products_lambda.function_name
+  route_key         = "POST /products"
 }
