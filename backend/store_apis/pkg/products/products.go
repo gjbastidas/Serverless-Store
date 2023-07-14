@@ -10,8 +10,28 @@ import (
 
 func CreateProduct(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	// parse json body
+
 	// write to database
 	return utils.Send(201, "product created"), nil
 }
 
-// TODO: make rest of CRUD functions and tests
+func ReadProduct(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	// parse json body
+
+	// write to database
+	return utils.Send(200, "product returned"), nil
+}
+
+func UpdateProduct(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	// parse json body
+
+	// write to database
+	return utils.Send(200, "product updated"), nil
+}
+
+func DeleteProduct(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	// parse json body
+
+	// write to database
+	return utils.Send(200, "product deleted"), nil
+}

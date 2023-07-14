@@ -87,5 +87,40 @@ module "products_lambda_integration" {
   integration_type  = "AWS_PROXY"
   integration_uri   = module.products_lambda.invoke_arn
   function_name     = module.products_lambda.function_name
-  route_key         = "POST /products"
+}
+
+##########################
+#   API Gateway Routes   #
+##########################
+
+module "create_product_route" {
+  source = "../../modules/api_gateway_routes"
+
+  api_id         = module.api_gw.api_id
+  route_key      = "POST /products"
+  integration_id = module.products_lambda_integration.id
+}
+
+module "read_product_route" {
+  source = "../../modules/api_gateway_routes"
+
+  api_id         = module.api_gw.api_id
+  route_key      = "GET /products/{id}"
+  integration_id = module.products_lambda_integration.id
+}
+
+module "update_product_route" {
+  source = "../../modules/api_gateway_routes"
+
+  api_id         = module.api_gw.api_id
+  route_key      = "PUT /products/{id}"
+  integration_id = module.products_lambda_integration.id
+}
+
+module "delete_product_route" {
+  source = "../../modules/api_gateway_routes"
+
+  api_id         = module.api_gw.api_id
+  route_key      = "DELETE /products/{id}"
+  integration_id = module.products_lambda_integration.id
 }

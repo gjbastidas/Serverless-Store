@@ -19,8 +19,15 @@ locals {
 }
 
 resource "null_resource" "go_build" {
+  triggers = {
+    always_run = "${timestamp()}"
+  }
+
   provisioner "local-exec" {
-    command = "cd ${var.source_path} && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 GOFLAGS=-trimpath go build -mod=readonly -ldflags='-s -w' -o ${local.bin_folder}/${local.binary_name} ${local.src_file}"
+    command = <<EOT
+      cd ${var.source_path} && \
+      GOOS=linux GOARCH=amd64 CGO_ENABLED=0 GOFLAGS=-trimpath go build -mod=readonly -ldflags='-s -w' -o ${local.bin_folder}/${local.binary_name} ${local.src_file}
+    EOT
   }
 }
 

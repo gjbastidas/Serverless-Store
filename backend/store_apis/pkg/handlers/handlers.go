@@ -15,6 +15,12 @@ func ProductsHandler(ctx context.Context, request events.APIGatewayProxyRequest)
 	switch request.HTTPMethod {
 	case http.MethodPost:
 		return products.CreateProduct(ctx, request)
+	case http.MethodGet:
+		return products.ReadProduct(ctx, request)
+	case http.MethodPut:
+		return products.UpdateProduct(ctx, request)
+	case http.MethodDelete:
+		return products.DeleteProduct(ctx, request)
 	default:
 		err := errors.New("method not defined")
 		return utils.Send(500, err.Error()), err
