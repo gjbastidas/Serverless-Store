@@ -24,6 +24,8 @@ variable "runtime" {
   default = "go1.x"
 }
 
+variable "env_vars" {}
+
 variable "cloudwatch_log_retention_in_days" {
   default = 7
 }

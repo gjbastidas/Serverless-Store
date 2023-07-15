@@ -49,6 +49,10 @@ resource "aws_lambda_function" "function" {
   timeout          = var.timeout
   filename         = data.archive_file.zip.output_path
   source_code_hash = data.archive_file.zip.output_base64sha256
+
+  environment {
+    variables = var.env_vars
+  }
 }
 
 resource "aws_cloudwatch_log_group" "for_lambda" {
