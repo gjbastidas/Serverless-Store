@@ -7,7 +7,24 @@ POST https://{{host}}/{{stage}}/products
 content-type: {{contentType}}
 
 {
-  "id": "100",
-  "dateModified": "2022-08-20 11:07:38",
-  "name": "my favorite product"
+  "name": "new product",
+  "description": "my favorite product"
 }
+
+#########Read Product
+GET https://{{host}}/{{stage}}/products/100
+content-type: {{contentType}}
+
+
+#########Update Product
+PUT https://{{host}}/{{stage}}/products/100
+content-type: {{contentType}}
+
+{
+  "id": "100",
+  "name": "my updated favorite product"
+}
+
+#########Delete Product
+DELETE https://{{host}}/{{stage}}/products/100
+content-type: {{contentType}}
