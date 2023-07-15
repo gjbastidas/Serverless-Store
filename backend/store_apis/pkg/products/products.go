@@ -24,10 +24,10 @@ type Product struct {
 }
 
 type Item struct {
-	Id           string `json:"id"`
-	DateModified string `json:"dateModified"`
-	Name         string `json:"name"`
-	Description  string `json:"description"`
+	Id           string
+	DateModified string
+	Name         string
+	Description  string
 }
 
 func CreateProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {

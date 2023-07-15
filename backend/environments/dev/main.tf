@@ -7,17 +7,17 @@ module "products_table" {
   version = "3.3.0"
 
   name         = format("%s-%s-%s", var.environment, var.solution_name, "products")
-  hash_key     = "id"
-  range_key    = "dateModified"
+  hash_key     = "Id"
+  range_key    = "DateModified"
   billing_mode = "PAY_PER_REQUEST"
 
   attributes = [
     {
-      name = "id",
+      name = "Id",
       type = "S"
     },
     {
-      name = "dateModified",
+      name = "DateModified",
       type = "S"
     }
   ]
