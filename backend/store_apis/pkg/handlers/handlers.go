@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 
 	aws_services "store_apis/pkg/aws"
@@ -23,13 +24,21 @@ func ProductsHandler(request events.APIGatewayProxyRequest) (events.APIGatewayPr
 	err := envconfig.Process("", &cfg)
 	if err != nil {
 		log.Error().Msg("bad environment configuration")
-		return utils.SendError(500, err), err
+		return utils.SendErr(&utils.APIResponse{
+			StatusCode: 500,
+			Message:    fmt.Sprintf("bad environment configuration: %v", err.Error()),
+			Data:       err.Error(),
+		}), err
 	}
 
 	// set clients
 	awsSvc, err := aws_services.NewAWS(cfg.AWSRegion)
 	if err != nil {
-		return utils.SendError(500, err), err
+		return utils.SendErr(&utils.APIResponse{
+			StatusCode: 500,
+			Message:    err.Error(),
+			Data:       err.Error(),
+		}), err
 	}
 
 	switch request.HTTPMethod {
@@ -43,7 +52,11 @@ func ProductsHandler(request events.APIGatewayProxyRequest) (events.APIGatewayPr
 		return products.DeleteProduct(ctx, request)
 	default:
 		err := errors.New("method not defined")
-		return utils.SendError(500, err), err
+		return utils.SendErr(&utils.APIResponse{
+			StatusCode: 500,
+			Message:    err.Error(),
+			Data:       err.Error(),
+		}), err
 	}
 }
 
