@@ -1,12 +1,6 @@
-resource "aws_iam_policy" "for_logs_access" {
-  name        = format("%s-%s-%s-%s", var.environment, var.solution_name, var.function_name, "for-log-access")
-  description = "role policy for ${var.function_name} lambda for cloudwatch logs access"
-  policy      = data.aws_iam_policy_document.for_logs_access.json
-}
-
-resource "aws_iam_role_policy_attachment" "for_logs_access" {
+resource "aws_iam_role_policy_attachment" "for_lambda_basic_execution" {
   role       = var.role_id
-  policy_arn = aws_iam_policy.for_logs_access.arn
+  policy_arn = data.aws_iam_policy.AWSLambdaBasicExecutionRole.arn
 }
 
 locals {
