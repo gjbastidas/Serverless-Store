@@ -14,7 +14,7 @@ module "products_table" {
   attributes = [
     {
       name = "id",
-      type = "N"
+      type = "S"
     },
     {
       name = "dateModified",
@@ -62,6 +62,10 @@ module "products_lambda" {
   role_id       = module.role_for_products_lambda.role_id
   function_name = "products"
   source_path   = "../../store_apis/cmd/lambdas/products"
+
+  env_vars = {
+    PRODUCTS_TABLE = "${module.products_table.dynamodb_table_id}"
+  }
 }
 
 ####################
