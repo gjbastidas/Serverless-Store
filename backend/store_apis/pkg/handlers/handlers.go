@@ -49,7 +49,7 @@ func ProductsHandler(request events.APIGatewayProxyRequest) (events.APIGatewayPr
 	case http.MethodPut:
 		return products.UpdateProduct(ctx, request)
 	case http.MethodDelete:
-		return products.DeleteProduct(ctx, request)
+		return products.DeleteProduct(ctx, request, cfg, awsSvc)
 	default:
 		err := errors.New("method not defined")
 		return utils.SendErr(&utils.APIResponse{
