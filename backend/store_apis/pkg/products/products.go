@@ -15,6 +15,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/google/uuid"
 )
@@ -92,34 +93,44 @@ func ReadProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg
 		}), err
 	}
 
-	key := Item{
-		Id: id,
-	}
-	avMap, err := attributevalue.MarshalMap(key)
+	keyEx := expression.Key("Id").Equal(expression.Value(id))
+	expr, err := expression.NewBuilder().WithKeyCondition(keyEx).Build()
 	if err != nil {
 		return utils.SendErr(&utils.APIResponse{
 			StatusCode: 500,
-			Message:    fmt.Sprintf("error mapping attribute values: %v", err.Error()),
+			Message:    fmt.Sprintf("error building query expression: %v", err.Error()),
 			Data:       err.Error(),
 		}), err
 	}
 
-	input := &dynamodb.GetItemInput{
-		TableName: aws.String(cfg.ProductsTable),
-		Key:       avMap,
+	queryInput := &dynamodb.QueryInput{
+		TableName:                 aws.String(cfg.ProductsTable),
+		KeyConditionExpression:    expr.KeyCondition(),
+		ExpressionAttributeNames:  expr.Names(),
+		ExpressionAttributeValues: expr.Values(),
 	}
 
-	result, err := awsSvc.DDBClient.GetItem(ctx, input)
+	queryOutput, err := awsSvc.DDBClient.Query(ctx, queryInput)
 	if err != nil {
 		return utils.SendErr(&utils.APIResponse{
 			StatusCode: 500,
-			Message:    fmt.Sprintf("error getting item: %v", err.Error()),
+			Message:    fmt.Sprintf("error query item: %v", err.Error()),
 			Data:       err.Error(),
 		}), err
 	}
 
-	if result.Item == nil {
-		err := fmt.Errorf("product with id: %v is not found", id)
+	items := []Item{}
+	err = attributevalue.UnmarshalListOfMaps(queryOutput.Items, &items)
+	if err != nil {
+		return utils.SendErr(&utils.APIResponse{
+			StatusCode: 500,
+			Message:    fmt.Sprintf("error unmarshalling query output: %v", err.Error()),
+			Data:       err.Error(),
+		}), err
+	}
+
+	if len(items) > 1 {
+		err := fmt.Errorf("duplicate entries found for id: %v", id)
 		return utils.SendErr(&utils.APIResponse{
 			StatusCode: 500,
 			Message:    err.Error(),
@@ -127,21 +138,56 @@ func ReadProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg
 		}), err
 	}
 
-	item := Item{}
-	err = attributevalue.UnmarshalMap(result.Item, &item)
-	if err != nil {
-		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Message:    err.Error(),
-			Data:       err.Error(),
-		}), err
-	}
+	// key := Item{
+	// 	Id: id,
+	// }
+	// avMap, err := attributevalue.MarshalMap(key)
+	// if err != nil {
+	// 	return utils.SendErr(&utils.APIResponse{
+	// 		StatusCode: 500,
+	// 		Message:    fmt.Sprintf("error mapping attribute values: %v", err.Error()),
+	// 		Data:       err.Error(),
+	// 	}), err
+	// }
 
-	out, err := json.Marshal(item)
+	// input := &dynamodb.GetItemInput{
+	// 	TableName: aws.String(cfg.ProductsTable),
+	// 	Key:       avMap,
+	// }
+
+	// result, err := awsSvc.DDBClient.GetItem(ctx, input)
+	// if err != nil {
+	// 	return utils.SendErr(&utils.APIResponse{
+	// 		StatusCode: 500,
+	// 		Message:    fmt.Sprintf("error getting item: %v", err.Error()),
+	// 		Data:       err.Error(),
+	// 	}), err
+	// }
+
+	// if result.Item == nil {
+	// 	err := fmt.Errorf("product with id: %v is not found", id)
+	// 	return utils.SendErr(&utils.APIResponse{
+	// 		StatusCode: 500,
+	// 		Message:    err.Error(),
+	// 		Data:       err.Error(),
+	// 	}), err
+	// }
+
+	// item := Item{}
+	// err = attributevalue.UnmarshalMap(result.Item, &item)
+	// if err != nil {
+	// 	return utils.SendErr(&utils.APIResponse{
+	// 		StatusCode: 500,
+	// 		Message:    err.Error(),
+	// 		Data:       err.Error(),
+	// 	}), err
+	// }
+
+	out, err := json.Marshal(items[0])
 	if err != nil {
 		return utils.SendErr(&utils.APIResponse{
 			StatusCode: 500,
-			Message:    fmt.Sprintf("error marshalling attributes: %v", err.Error()),
+			Message:    fmt.Sprintf("error marshalling items: %v", err.Error()),
 			Data:       err.Error(),
 		}), err
 	}
