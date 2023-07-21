@@ -32,6 +32,7 @@ data "aws_iam_policy_document" "for_products_lambda" {
     effect = "Allow"
     actions = [
       "dynamodb:PutItem",
+      "dynamodb:GetItem"
     ]
 
     resources = [

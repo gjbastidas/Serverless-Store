@@ -3,6 +3,7 @@ package products
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -63,7 +64,7 @@ func CreateProduct(ctx context.Context, request events.APIGatewayProxyRequest, c
 		Item:      avMap,
 	}
 
-	output, err := awsSvc.DDBClient.PutItem(ctx, input)
+	_, err = awsSvc.DDBClient.PutItem(ctx, input)
 	if err != nil {
 		return utils.SendErr(&utils.APIResponse{
 			StatusCode: 500,
@@ -72,7 +73,71 @@ func CreateProduct(ctx context.Context, request events.APIGatewayProxyRequest, c
 		}), err
 	}
 
-	out, err := json.Marshal(output.Attributes)
+	msj := fmt.Sprintf("successfully created product with id: %s", item.Id)
+	return utils.SendOK(&utils.APIResponse{
+		StatusCode: 201,
+		Message:    msj,
+		Data:       msj,
+	}), nil
+}
+
+func ReadProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
+	id := request.PathParameters["id"]
+	if len(id) == 0 {
+		err := errors.New("empty id on path params")
+		return utils.SendErr(&utils.APIResponse{
+			StatusCode: 400,
+			Message:    err.Error(),
+			Data:       err.Error(),
+		}), err
+	}
+
+	key := Item{
+		Id: id,
+	}
+	avMap, err := attributevalue.MarshalMap(key)
+	if err != nil {
+		return utils.SendErr(&utils.APIResponse{
+			StatusCode: 500,
+			Message:    fmt.Sprintf("error mapping attribute values: %v", err.Error()),
+			Data:       err.Error(),
+		}), err
+	}
+
+	input := &dynamodb.GetItemInput{
+		TableName: aws.String(cfg.ProductsTable),
+		Key:       avMap,
+	}
+
+	result, err := awsSvc.DDBClient.GetItem(ctx, input)
+	if err != nil {
+		return utils.SendErr(&utils.APIResponse{
+			StatusCode: 500,
+			Message:    fmt.Sprintf("error getting item: %v", err.Error()),
+			Data:       err.Error(),
+		}), err
+	}
+
+	if result.Item == nil {
+		err := fmt.Errorf("product with id: %v is not found", id)
+		return utils.SendErr(&utils.APIResponse{
+			StatusCode: 500,
+			Message:    err.Error(),
+			Data:       err.Error(),
+		}), err
+	}
+
+	item := Item{}
+	err = attributevalue.UnmarshalMap(result.Item, &item)
+	if err != nil {
+		return utils.SendErr(&utils.APIResponse{
+			StatusCode: 500,
+			Message:    err.Error(),
+			Data:       err.Error(),
+		}), err
+	}
+
+	out, err := json.Marshal(item)
 	if err != nil {
 		return utils.SendErr(&utils.APIResponse{
 			StatusCode: 500,
@@ -82,18 +147,9 @@ func CreateProduct(ctx context.Context, request events.APIGatewayProxyRequest, c
 	}
 
 	return utils.SendOK(&utils.APIResponse{
-		StatusCode: 201,
-		Message:    fmt.Sprintf("successfully created product with id: %s", item.Id),
-		Data:       string(out),
-	}), nil
-}
-
-func ReadProduct(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	msj := "product returned"
-	return utils.SendOK(&utils.APIResponse{
 		StatusCode: 200,
-		Message:    msj,
-		Data:       msj,
+		Message:    string(out),
+		Data:       string(out),
 	}), nil
 }
 
