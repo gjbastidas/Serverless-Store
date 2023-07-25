@@ -47,7 +47,7 @@ func ProductsHandler(request events.APIGatewayProxyRequest) (events.APIGatewayPr
 	case http.MethodGet:
 		return products.ReadProduct(ctx, request, cfg, awsSvc)
 	case http.MethodPut:
-		return products.UpdateProduct(ctx, request)
+		return products.UpdateProduct(ctx, request, cfg, awsSvc)
 	case http.MethodDelete:
 		return products.DeleteProduct(ctx, request, cfg, awsSvc)
 	default:

@@ -33,7 +33,8 @@ data "aws_iam_policy_document" "for_products_lambda" {
     actions = [
       "dynamodb:PutItem",
       "dynamodb:Query",
-      "dynamodb:DeleteItem"
+      "dynamodb:DeleteItem",
+      "dynamodb:UpdateItem"
     ]
 
     resources = [

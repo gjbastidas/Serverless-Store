@@ -98,8 +98,9 @@ func ReadProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg
 		}), err
 	}
 
-	keyEx := expression.Key("Id").Equal(expression.Value(id))
-	expr, err := expression.NewBuilder().WithKeyCondition(keyEx).Build()
+	keyCondition := expression.
+		Key("Id").Equal(expression.Value(id))
+	keyExpr, err := expression.NewBuilder().WithKeyCondition(keyCondition).Build()
 	if err != nil {
 		return utils.SendErr(&utils.APIResponse{
 			StatusCode: 500,
@@ -110,9 +111,9 @@ func ReadProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg
 
 	queryInput := &dynamodb.QueryInput{
 		TableName:                 aws.String(cfg.ProductsTable),
-		KeyConditionExpression:    expr.KeyCondition(),
-		ExpressionAttributeNames:  expr.Names(),
-		ExpressionAttributeValues: expr.Values(),
+		KeyConditionExpression:    keyExpr.KeyCondition(),
+		ExpressionAttributeNames:  keyExpr.Names(),
+		ExpressionAttributeValues: keyExpr.Values(),
 	}
 
 	queryOutput, err := awsSvc.DDBClient.Query(ctx, queryInput)
@@ -124,21 +125,28 @@ func ReadProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg
 		}), err
 	}
 
+	if len(queryOutput.Items) == 0 {
+		err := fmt.Errorf("no entries found with id: %v", id)
+		return utils.SendErr(&utils.APIResponse{
+			StatusCode: 500,
+			Message:    err.Error(),
+			Data:       err.Error(),
+		}), err
+	} else if len(queryOutput.Items) > 1 {
+		err := fmt.Errorf("duplicate entries found for id: %v", id)
+		return utils.SendErr(&utils.APIResponse{
+			StatusCode: 500,
+			Message:    err.Error(),
+			Data:       err.Error(),
+		}), err
+	}
+
 	items := []Item{}
 	err = attributevalue.UnmarshalListOfMaps(queryOutput.Items, &items)
 	if err != nil {
 		return utils.SendErr(&utils.APIResponse{
 			StatusCode: 500,
 			Message:    fmt.Sprintf("error unmarshalling query output: %v", err.Error()),
-			Data:       err.Error(),
-		}), err
-	}
-
-	if len(items) > 1 {
-		err := fmt.Errorf("duplicate entries found for id: %v", id)
-		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Message:    err.Error(),
 			Data:       err.Error(),
 		}), err
 	}
@@ -159,8 +167,121 @@ func ReadProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg
 	}), nil
 }
 
-func UpdateProduct(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	msj := "product updated"
+func UpdateProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
+	id := request.PathParameters["id"]
+	if len(id) == 0 {
+		err := errors.New("empty id on path params")
+		return utils.SendErr(&utils.APIResponse{
+			StatusCode: 400,
+			Message:    err.Error(),
+			Data:       err.Error(),
+		}), err
+	}
+
+	keyCondition := expression.Key("Id").Equal(expression.Value(id))
+	keyExpr, err := expression.NewBuilder().WithKeyCondition(keyCondition).Build()
+	if err != nil {
+		return utils.SendErr(&utils.APIResponse{
+			StatusCode: 500,
+			Message:    fmt.Sprintf("error building query expression: %v", err.Error()),
+			Data:       err.Error(),
+		}), err
+	}
+
+	queryInput := &dynamodb.QueryInput{
+		TableName:                 aws.String(cfg.ProductsTable),
+		KeyConditionExpression:    keyExpr.KeyCondition(),
+		ExpressionAttributeNames:  keyExpr.Names(),
+		ExpressionAttributeValues: keyExpr.Values(),
+	}
+
+	queryOutput, err := awsSvc.DDBClient.Query(ctx, queryInput)
+	if err != nil {
+		return utils.SendErr(&utils.APIResponse{
+			StatusCode: 500,
+			Message:    fmt.Sprintf("error query item: %v", err.Error()),
+			Data:       err.Error(),
+		}), err
+	}
+
+	if len(queryOutput.Items) == 0 {
+		err := fmt.Errorf("no entries found with id: %v", id)
+		return utils.SendErr(&utils.APIResponse{
+			StatusCode: 500,
+			Message:    err.Error(),
+			Data:       err.Error(),
+		}), err
+	} else if len(queryOutput.Items) > 1 {
+		err := fmt.Errorf("duplicate entries found for id: %v", id)
+		return utils.SendErr(&utils.APIResponse{
+			StatusCode: 500,
+			Message:    err.Error(),
+			Data:       err.Error(),
+		}), err
+	}
+
+	items := []Item{}
+	err = attributevalue.UnmarshalListOfMaps(queryOutput.Items, &items)
+	if err != nil {
+		return utils.SendErr(&utils.APIResponse{
+			StatusCode: 500,
+			Message:    fmt.Sprintf("error unmarshalling query output: %v", err.Error()),
+			Data:       err.Error(),
+		}), err
+	}
+
+	key := Key{
+		Id:           items[0].Id,
+		DateModified: items[0].DateModified,
+	}
+	avMap, err := attributevalue.MarshalMap(key)
+	if err != nil {
+		return utils.SendErr(&utils.APIResponse{
+			StatusCode: 500,
+			Message:    fmt.Sprintf("error mapping attribute values: %v", err.Error()),
+			Data:       err.Error(),
+		}), err
+	}
+
+	var product Product
+	err = json.NewDecoder(strings.NewReader(request.Body)).Decode(&product)
+	if err != nil {
+		return utils.SendErr(&utils.APIResponse{
+			StatusCode: 400,
+			Message:    fmt.Sprintf("error decoding request body: %v", err.Error()),
+			Data:       err.Error(),
+		}), err
+	}
+
+	updateCondition := expression.
+		Set(expression.Name("Name"), expression.Value(product.Name)).
+		Set(expression.Name("Description"), expression.Value(product.Description))
+	updateExpr, err := expression.NewBuilder().WithUpdate(updateCondition).Build()
+	if err != nil {
+		return utils.SendErr(&utils.APIResponse{
+			StatusCode: 500,
+			Message:    fmt.Sprintf("error building update expression: %v", err.Error()),
+			Data:       err.Error(),
+		}), err
+	}
+
+	updateInput := &dynamodb.UpdateItemInput{
+		TableName:                 aws.String(cfg.ProductsTable),
+		Key:                       avMap,
+		ExpressionAttributeNames:  updateExpr.Names(),
+		ExpressionAttributeValues: updateExpr.Values(),
+		UpdateExpression:          updateExpr.Update(),
+	}
+	_, err = awsSvc.DDBClient.UpdateItem(ctx, updateInput)
+	if err != nil {
+		return utils.SendErr(&utils.APIResponse{
+			StatusCode: 500,
+			Message:    fmt.Sprintf("error updating item with id: %v", id),
+			Data:       err.Error(),
+		}), err
+	}
+
+	msj := fmt.Sprintf("product with id: %v, was successfully updated", id)
 	return utils.SendOK(&utils.APIResponse{
 		StatusCode: 200,
 		Message:    msj,
