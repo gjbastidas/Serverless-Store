@@ -7,8 +7,8 @@ import (
 
 type APIResponse struct {
 	StatusCode int
-	Message    string
 	Data       string
+	LogMessage string
 }
 
 func Send(statusCode int, data string) events.APIGatewayProxyResponse {
@@ -19,11 +19,11 @@ func Send(statusCode int, data string) events.APIGatewayProxyResponse {
 }
 
 func SendOK(aR *APIResponse) events.APIGatewayProxyResponse {
-	log.Info().Msg(aR.Message)
+	log.Info().Msg(aR.LogMessage)
 	return Send(aR.StatusCode, aR.Data)
 }
 
 func SendErr(aR *APIResponse) events.APIGatewayProxyResponse {
-	log.Error().Msg(aR.Message)
+	log.Error().Msg(aR.LogMessage)
 	return Send(aR.StatusCode, aR.Data)
 }

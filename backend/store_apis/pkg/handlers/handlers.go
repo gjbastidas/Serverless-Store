@@ -13,7 +13,6 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/kelseyhightower/envconfig"
-	"github.com/rs/zerolog/log"
 )
 
 func ProductsHandler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
@@ -23,39 +22,40 @@ func ProductsHandler(request events.APIGatewayProxyRequest) (events.APIGatewayPr
 	var cfg config.Cfg
 	err := envconfig.Process("", &cfg)
 	if err != nil {
-		log.Error().Msg("bad environment configuration")
+		newErr := fmt.Errorf("bad environment configuration: %v", err)
 		return utils.SendErr(&utils.APIResponse{
 			StatusCode: 500,
-			Message:    fmt.Sprintf("bad environment configuration: %v", err.Error()),
-			Data:       err.Error(),
-		}), err
+			Data:       "",
+			LogMessage: newErr.Error(),
+		}), newErr
 	}
 
 	// set clients
 	awsSvc, err := aws_services.NewAWS(cfg.AWSRegion)
 	if err != nil {
+		newErr := fmt.Errorf("error setting AWS services: %v", err)
 		return utils.SendErr(&utils.APIResponse{
 			StatusCode: 500,
-			Message:    err.Error(),
-			Data:       err.Error(),
-		}), err
+			Data:       "",
+			LogMessage: err.Error(),
+		}), newErr
 	}
 
 	switch request.HTTPMethod {
 	case http.MethodPost:
-		return products.CreateProduct(ctx, request, cfg, awsSvc)
+		return products.PostHandler(ctx, request, cfg, awsSvc)
 	case http.MethodGet:
-		return products.ReadProduct(ctx, request, cfg, awsSvc)
+		return products.GetHandler(ctx, request, cfg, awsSvc)
 	case http.MethodPut:
-		return products.UpdateProduct(ctx, request, cfg, awsSvc)
+		return products.UpdateHandler(ctx, request, cfg, awsSvc)
 	case http.MethodDelete:
-		return products.DeleteProduct(ctx, request, cfg, awsSvc)
+		return products.DeleteHandler(ctx, request, cfg, awsSvc)
 	default:
 		err := errors.New("method not defined")
 		return utils.SendErr(&utils.APIResponse{
 			StatusCode: 500,
-			Message:    err.Error(),
 			Data:       err.Error(),
+			LogMessage: err.Error(),
 		}), err
 	}
 }
