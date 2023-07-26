@@ -39,7 +39,6 @@ type Key struct {
 
 func CreateProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
 	var product Product
-
 	err := json.NewDecoder(strings.NewReader(request.Body)).Decode(&product)
 	if err != nil {
 		return utils.SendErr(&utils.APIResponse{
@@ -49,9 +48,18 @@ func CreateProduct(ctx context.Context, request events.APIGatewayProxyRequest, c
 		}), err
 	}
 
+	currentTime := time.Now().UTC().Format(time.RFC3339)
+	currentDateTime, err := time.Parse(time.RFC3339, currentTime)
+	if err != nil {
+		return utils.SendErr(&utils.APIResponse{
+			StatusCode: 400,
+			Message:    fmt.Sprintf("error parsing date time: %v", err.Error()),
+			Data:       err.Error(),
+		}), err
+	}
 	item := Item{
 		Id:           uuid.New().String(),
-		DateModified: time.Now().Format(cfg.DateString),
+		DateModified: currentDateTime.String(),
 		Name:         product.Name,
 		Description:  product.Description,
 	}
