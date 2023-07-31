@@ -22,23 +22,23 @@ func ProductsHandler(request events.APIGatewayProxyRequest) (events.APIGatewayPr
 	cfg := new(config.Cfg)
 	err := envconfig.Process("", cfg)
 	if err != nil {
-		newErr := fmt.Errorf("bad environment configuration: %v", err)
+		msj := fmt.Sprintf("bad environment configuration: %v", err)
 		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Data:       "",
-			LogMessage: newErr.Error(),
-		}), newErr
+			StatusCode: http.StatusInternalServerError,
+			Data:       msj,
+			LogMessage: msj,
+		})
 	}
 
 	// set clients
 	awsSvc, err := aws_services.NewAWS(cfg.AWSRegion)
 	if err != nil {
-		newErr := fmt.Errorf("error setting AWS services: %v", err)
+		msj := fmt.Sprintf("error setting AWS services: %v", err)
 		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Data:       "",
-			LogMessage: err.Error(),
-		}), newErr
+			StatusCode: http.StatusInternalServerError,
+			Data:       msj,
+			LogMessage: msj,
+		})
 	}
 
 	switch request.HTTPMethod {
@@ -53,10 +53,10 @@ func ProductsHandler(request events.APIGatewayProxyRequest) (events.APIGatewayPr
 	default:
 		err := errors.New("method not defined")
 		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
+			StatusCode: http.StatusInternalServerError,
 			Data:       err.Error(),
 			LogMessage: err.Error(),
-		}), err
+		})
 	}
 }
 

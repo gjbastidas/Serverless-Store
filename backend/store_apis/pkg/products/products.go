@@ -3,8 +3,8 @@ package products
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -52,12 +52,12 @@ func DeleteHandler(ctx context.Context, request events.APIGatewayProxyRequest, c
 func createProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg *config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
 	product := new(Product)
 	if err := json.NewDecoder(strings.NewReader(request.Body)).Decode(product); err != nil {
-		newErr := fmt.Errorf("error decoding request body: %v", err.Error())
+		msj := fmt.Sprintf("error decoding request body: %v", err.Error())
 		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 400,
-			Data:       "",
-			LogMessage: newErr.Error(),
-		}), newErr
+			StatusCode: http.StatusBadRequest,
+			Data:       msj,
+			LogMessage: msj,
+		})
 	}
 
 	item := &Item{
@@ -69,12 +69,12 @@ func createProduct(ctx context.Context, request events.APIGatewayProxyRequest, c
 
 	avMap, err := attributevalue.MarshalMap(item)
 	if err != nil {
-		newErr := fmt.Errorf("error mapping attribute values: %v", err.Error())
+		msj := fmt.Sprintf("error mapping attribute values: %v", err.Error())
 		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Data:       "",
-			LogMessage: newErr.Error(),
-		}), newErr
+			StatusCode: http.StatusInternalServerError,
+			Data:       msj,
+			LogMessage: msj,
+		})
 	}
 
 	input := &dynamodb.PutItemInput{
@@ -83,31 +83,31 @@ func createProduct(ctx context.Context, request events.APIGatewayProxyRequest, c
 	}
 	_, err = awsSvc.DDBClient.PutItem(ctx, input)
 	if err != nil {
-		newErr := fmt.Errorf("error putting item: %v", err.Error())
+		msj := fmt.Sprintf("error putting item: %v", err.Error())
 		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Data:       "",
-			LogMessage: newErr.Error(),
-		}), newErr
+			StatusCode: http.StatusInternalServerError,
+			Data:       msj,
+			LogMessage: msj,
+		})
 	}
 
 	msj := fmt.Sprintf("successfully created product with id: %s", item.Id)
 	return utils.SendOK(&utils.APIResponse{
-		StatusCode: 201,
+		StatusCode: http.StatusCreated,
 		Data:       msj,
 		LogMessage: msj,
-	}), nil
+	})
 }
 
 func readProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg *config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
 	id := request.PathParameters["id"]
 	if len(id) == 0 {
-		err := errors.New("empty id on path params")
+		msj := fmt.Sprint("empty id on path params")
 		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 400,
-			Data:       "",
-			LogMessage: err.Error(),
-		}), err
+			StatusCode: http.StatusBadRequest,
+			Data:       msj,
+			LogMessage: msj,
+		})
 	}
 
 	expr, err := expression.NewBuilder().WithKeyCondition(
@@ -115,12 +115,12 @@ func readProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg
 			Key("id").Equal(expression.Value(id)),
 	).Build()
 	if err != nil {
-		newErr := fmt.Errorf("error building query expression: %v", err.Error())
+		msj := fmt.Sprintf("error building query expression: %v", err.Error())
 		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Data:       "",
-			LogMessage: newErr.Error(),
-		}), newErr
+			StatusCode: http.StatusInternalServerError,
+			Data:       msj,
+			LogMessage: msj,
+		})
 	}
 
 	queryInput := &dynamodb.QueryInput{
@@ -133,71 +133,71 @@ func readProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg
 
 	queryOutput, err := awsSvc.DDBClient.Query(ctx, queryInput)
 	if err != nil {
-		newErr := fmt.Errorf("error query item: %v", err.Error())
+		msj := fmt.Sprintf("error query item: %v", err.Error())
 		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Data:       "",
-			LogMessage: newErr.Error(),
-		}), err
+			StatusCode: http.StatusInternalServerError,
+			Data:       msj,
+			LogMessage: msj,
+		})
 	}
 
 	if len(queryOutput.Items) == 0 {
-		err := fmt.Errorf("no entries found with id: %v", id)
+		msj := fmt.Sprintf("no entries found with id: %v", id)
 		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Data:       "",
-			LogMessage: err.Error(),
-		}), err
+			StatusCode: http.StatusInternalServerError,
+			Data:       msj,
+			LogMessage: msj,
+		})
 	}
 
 	item := new(Item)
 	err = attributevalue.UnmarshalMap(queryOutput.Items[0], item)
 	if err != nil {
-		newErr := fmt.Errorf("error unmarshalling query output: %v", err.Error())
+		msj := fmt.Sprintf("error unmarshalling query output: %v", err.Error())
 		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Data:       "",
-			LogMessage: newErr.Error(),
-		}), err
+			StatusCode: http.StatusInternalServerError,
+			Data:       msj,
+			LogMessage: msj,
+		})
 	}
 
 	out, err := json.Marshal(item)
 	if err != nil {
-		newErr := fmt.Errorf("error marshalling item: %v", err.Error())
+		msj := fmt.Sprintf("error marshalling item: %v", err.Error())
 		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Data:       "",
-			LogMessage: newErr.Error(),
-		}), err
+			StatusCode: http.StatusInternalServerError,
+			Data:       msj,
+			LogMessage: msj,
+		})
 	}
 
 	return utils.SendOK(&utils.APIResponse{
-		StatusCode: 200,
+		StatusCode: http.StatusOK,
 		Data:       string(out),
 		LogMessage: string(out),
-	}), nil
+	})
 }
 
 func updateProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg *config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
 	id := request.PathParameters["id"]
 	if len(id) == 0 {
-		err := errors.New("empty id on path params")
+		msj := fmt.Sprint("empty id on path params")
 		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 400,
-			Data:       "",
-			LogMessage: err.Error(),
-		}), err
+			StatusCode: http.StatusBadRequest,
+			Data:       msj,
+			LogMessage: msj,
+		})
 	}
 
 	product := new(Product)
 	err := json.NewDecoder(strings.NewReader(request.Body)).Decode(product)
 	if err != nil {
-		newErr := fmt.Errorf("error decoding request body: %v", err.Error())
+		msj := fmt.Sprintf("error decoding request body: %v", err.Error())
 		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 400,
-			Data:       "",
-			LogMessage: newErr.Error(),
-		}), newErr
+			StatusCode: http.StatusBadRequest,
+			Data:       msj,
+			LogMessage: msj,
+		})
 	}
 
 	expr, err := expression.NewBuilder().WithUpdate(
@@ -209,12 +209,12 @@ func updateProduct(ctx context.Context, request events.APIGatewayProxyRequest, c
 			AttributeExists(expression.Name("id")),
 	).Build()
 	if err != nil {
-		newErr := fmt.Errorf("error building update expression: %v", err.Error())
+		msj := fmt.Sprintf("error building update expression: %v", err.Error())
 		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Data:       "",
-			LogMessage: newErr.Error(),
-		}), newErr
+			StatusCode: http.StatusInternalServerError,
+			Data:       msj,
+			LogMessage: msj,
+		})
 	}
 
 	updateInput := &dynamodb.UpdateItemInput{
@@ -229,12 +229,12 @@ func updateProduct(ctx context.Context, request events.APIGatewayProxyRequest, c
 	}
 	_, err = awsSvc.DDBClient.UpdateItem(ctx, updateInput)
 	if err != nil {
-		newErr := fmt.Errorf("error updating item with id: %v. error: %v", id, err)
+		msj := fmt.Sprintf("error updating item with id: %v. error: %v", id, err)
 		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Data:       newErr.Error(),
-			LogMessage: newErr.Error(),
-		}), newErr
+			StatusCode: http.StatusInternalServerError,
+			Data:       msj,
+			LogMessage: msj,
+		})
 	}
 
 	msj := fmt.Sprintf("product with id: %v, was successfully updated", id)
@@ -242,18 +242,18 @@ func updateProduct(ctx context.Context, request events.APIGatewayProxyRequest, c
 		StatusCode: 200,
 		Data:       msj,
 		LogMessage: msj,
-	}), nil
+	})
 }
 
 func deleteProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg *config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
 	id := request.PathParameters["id"]
 	if len(id) == 0 {
-		err := errors.New("empty id on path params")
+		msj := fmt.Sprintf("empty id on path params")
 		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 400,
-			Data:       "",
-			LogMessage: err.Error(),
-		}), err
+			StatusCode: http.StatusBadRequest,
+			Data:       msj,
+			LogMessage: msj,
+		})
 	}
 
 	expr, err := expression.NewBuilder().WithCondition(
@@ -261,12 +261,12 @@ func deleteProduct(ctx context.Context, request events.APIGatewayProxyRequest, c
 			AttributeExists(expression.Name("id")),
 	).Build()
 	if err != nil {
-		newErr := fmt.Errorf("error building condition expression: %v", err.Error())
+		msj := fmt.Sprintf("error building condition expression: %v", err.Error())
 		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Data:       "",
-			LogMessage: newErr.Error(),
-		}), newErr
+			StatusCode: http.StatusInternalServerError,
+			Data:       msj,
+			LogMessage: msj,
+		})
 	}
 
 	deleteInput := &dynamodb.DeleteItemInput{
@@ -280,12 +280,12 @@ func deleteProduct(ctx context.Context, request events.APIGatewayProxyRequest, c
 	}
 	_, err = awsSvc.DDBClient.DeleteItem(ctx, deleteInput)
 	if err != nil {
-		newErr := fmt.Errorf("error deleting item with id: %v", id)
+		msj := fmt.Sprintf("error deleting item with id: %v", id)
 		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Data:       "",
-			LogMessage: newErr.Error(),
-		}), newErr
+			StatusCode: http.StatusInternalServerError,
+			Data:       msj,
+			LogMessage: msj,
+		})
 	}
 
 	msj := fmt.Sprintf("product with id: %v, was successfully deleted", id)
@@ -293,5 +293,5 @@ func deleteProduct(ctx context.Context, request events.APIGatewayProxyRequest, c
 		StatusCode: 200,
 		Data:       msj,
 		LogMessage: msj,
-	}), nil
+	})
 }
