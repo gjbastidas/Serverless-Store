@@ -13,18 +13,15 @@ content-type: {{contentType}}
 
 #########Read Product
 GET https://{{host}}/{{stage}}/products/100
-content-type: {{contentType}}
-
 
 #########Update Product
 PUT https://{{host}}/{{stage}}/products/100
 content-type: {{contentType}}
 
 {
-  "id": "100",
-  "name": "my updated favorite product"
+  "name": "updated product",
+  "description": "my favorite updated product"
 }
 
 #########Delete Product
 DELETE https://{{host}}/{{stage}}/products/100
-content-type: {{contentType}}
