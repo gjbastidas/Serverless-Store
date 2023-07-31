@@ -19,8 +19,8 @@ func ProductsHandler(request events.APIGatewayProxyRequest) (events.APIGatewayPr
 	ctx := context.TODO()
 
 	// set config
-	var cfg config.Cfg
-	err := envconfig.Process("", &cfg)
+	cfg := new(config.Cfg)
+	err := envconfig.Process("", cfg)
 	if err != nil {
 		newErr := fmt.Errorf("bad environment configuration: %v", err)
 		return utils.SendErr(&utils.APIResponse{

@@ -17,6 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/google/uuid"
 )
 
@@ -26,36 +27,31 @@ type Product struct {
 }
 
 type Item struct {
-	Id           string
-	DateModified string
-	Name         string
-	Description  string
+	Id           string `dynamodbav:"id"`
+	DateModified int64  `dynamodbav:"dateModified"`
+	Name         string `dynamodbav:"name"`
+	Description  string `dynamodbav:"description"`
 }
 
-type Key struct {
-	Id           string
-	DateModified string
-}
-
-func PostHandler(ctx context.Context, request events.APIGatewayProxyRequest, cfg config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
+func PostHandler(ctx context.Context, request events.APIGatewayProxyRequest, cfg *config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
 	return createProduct(ctx, request, cfg, awsSvc)
 }
 
-func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest, cfg config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
+func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest, cfg *config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
 	return readProduct(ctx, request, cfg, awsSvc)
 }
 
-func UpdateHandler(ctx context.Context, request events.APIGatewayProxyRequest, cfg config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
+func UpdateHandler(ctx context.Context, request events.APIGatewayProxyRequest, cfg *config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
 	return updateProduct(ctx, request, cfg, awsSvc)
 }
 
-func DeleteHandler(ctx context.Context, request events.APIGatewayProxyRequest, cfg config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
+func DeleteHandler(ctx context.Context, request events.APIGatewayProxyRequest, cfg *config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
 	return deleteProduct(ctx, request, cfg, awsSvc)
 }
 
-func createProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
-	var product Product
-	if err := json.NewDecoder(strings.NewReader(request.Body)).Decode(&product); err != nil {
+func createProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg *config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
+	product := new(Product)
+	if err := json.NewDecoder(strings.NewReader(request.Body)).Decode(product); err != nil {
 		newErr := fmt.Errorf("error decoding request body: %v", err.Error())
 		return utils.SendErr(&utils.APIResponse{
 			StatusCode: 400,
@@ -64,19 +60,9 @@ func createProduct(ctx context.Context, request events.APIGatewayProxyRequest, c
 		}), newErr
 	}
 
-	currentTime := time.Now().UTC().Format(time.RFC3339)
-	currentDateTime, err := time.Parse(time.RFC3339, currentTime)
-	if err != nil {
-		newErr := fmt.Errorf("error parsing datetime: %v", err.Error())
-		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 400,
-			Data:       "",
-			LogMessage: newErr.Error(),
-		}), newErr
-	}
-	item := Item{
+	item := &Item{
 		Id:           uuid.New().String(),
-		DateModified: currentDateTime.String(),
+		DateModified: time.Now().UTC().Unix(),
 		Name:         product.Name,
 		Description:  product.Description,
 	}
@@ -113,7 +99,7 @@ func createProduct(ctx context.Context, request events.APIGatewayProxyRequest, c
 	}), nil
 }
 
-func readProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
+func readProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg *config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
 	id := request.PathParameters["id"]
 	if len(id) == 0 {
 		err := errors.New("empty id on path params")
@@ -124,221 +110,10 @@ func readProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg
 		}), err
 	}
 
-	keyCondition := expression.
-		Key("Id").Equal(expression.Value(id))
-	keyExpr, err := expression.NewBuilder().WithKeyCondition(keyCondition).Build()
-	if err != nil {
-		newErr := fmt.Errorf("error building query expression: %v", err.Error())
-		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Data:       "",
-			LogMessage: newErr.Error(),
-		}), newErr
-	}
-
-	queryInput := &dynamodb.QueryInput{
-		TableName:                 aws.String(cfg.ProductsTable),
-		KeyConditionExpression:    keyExpr.KeyCondition(),
-		ExpressionAttributeNames:  keyExpr.Names(),
-		ExpressionAttributeValues: keyExpr.Values(),
-	}
-
-	queryOutput, err := awsSvc.DDBClient.Query(ctx, queryInput)
-	if err != nil {
-		newErr := fmt.Errorf("error query item: %v", err.Error())
-		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Data:       "",
-			LogMessage: newErr.Error(),
-		}), err
-	}
-
-	if len(queryOutput.Items) == 0 {
-		err := fmt.Errorf("no entries found with id: %v", id)
-		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Data:       "",
-			LogMessage: err.Error(),
-		}), err
-	} else if len(queryOutput.Items) > 1 {
-		err := fmt.Errorf("duplicate entries found for id: %v", id)
-		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Data:       "",
-			LogMessage: err.Error(),
-		}), err
-	}
-
-	items := []Item{}
-	err = attributevalue.UnmarshalListOfMaps(queryOutput.Items, &items)
-	if err != nil {
-		newErr := fmt.Errorf("error unmarshalling query output: %v", err.Error())
-		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Data:       "",
-			LogMessage: newErr.Error(),
-		}), err
-	}
-
-	out, err := json.Marshal(items[0])
-	if err != nil {
-		newErr := fmt.Errorf("error marshalling items: %v", err.Error())
-		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Data:       "",
-			LogMessage: newErr.Error(),
-		}), err
-	}
-
-	return utils.SendOK(&utils.APIResponse{
-		StatusCode: 200,
-		Data:       string(out),
-		LogMessage: string(out),
-	}), nil
-}
-
-func updateProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
-	id := request.PathParameters["id"]
-	if len(id) == 0 {
-		err := errors.New("empty id on path params")
-		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 400,
-			Data:       "",
-			LogMessage: err.Error(),
-		}), err
-	}
-
-	keyCondition := expression.Key("Id").Equal(expression.Value(id))
-	keyExpr, err := expression.NewBuilder().WithKeyCondition(keyCondition).Build()
-	if err != nil {
-		newErr := fmt.Errorf("error building query expression: %v", err.Error())
-		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Data:       "",
-			LogMessage: newErr.Error(),
-		}), newErr
-	}
-
-	queryInput := &dynamodb.QueryInput{
-		TableName:                 aws.String(cfg.ProductsTable),
-		KeyConditionExpression:    keyExpr.KeyCondition(),
-		ExpressionAttributeNames:  keyExpr.Names(),
-		ExpressionAttributeValues: keyExpr.Values(),
-	}
-
-	queryOutput, err := awsSvc.DDBClient.Query(ctx, queryInput)
-	if err != nil {
-		newErr := fmt.Errorf("error query item: %v", err.Error())
-		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Data:       "",
-			LogMessage: newErr.Error(),
-		}), newErr
-	}
-
-	if len(queryOutput.Items) == 0 {
-		err := fmt.Errorf("no entries found with id: %v", id)
-		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Data:       "",
-			LogMessage: err.Error(),
-		}), err
-	} else if len(queryOutput.Items) > 1 {
-		err := fmt.Errorf("duplicate entries found for id: %v", id)
-		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Data:       "",
-			LogMessage: err.Error(),
-		}), err
-	}
-
-	items := []Item{}
-	err = attributevalue.UnmarshalListOfMaps(queryOutput.Items, &items)
-	if err != nil {
-		newErr := fmt.Errorf("error unmarshalling query output: %v", err.Error())
-		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Data:       "",
-			LogMessage: newErr.Error(),
-		}), newErr
-	}
-
-	key := Key{
-		Id:           items[0].Id,
-		DateModified: items[0].DateModified,
-	}
-	avMap, err := attributevalue.MarshalMap(key)
-	if err != nil {
-		newErr := fmt.Errorf("error mapping attribute values: %v", err.Error())
-		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Data:       "",
-			LogMessage: newErr.Error(),
-		}), newErr
-	}
-
-	var product Product
-	err = json.NewDecoder(strings.NewReader(request.Body)).Decode(&product)
-	if err != nil {
-		newErr := fmt.Errorf("error decoding request body: %v", err.Error())
-		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 400,
-			Data:       "",
-			LogMessage: newErr.Error(),
-		}), newErr
-	}
-
-	updateCondition := expression.
-		Set(expression.Name("Name"), expression.Value(product.Name)).
-		Set(expression.Name("Description"), expression.Value(product.Description))
-	updateExpr, err := expression.NewBuilder().WithUpdate(updateCondition).Build()
-	if err != nil {
-		newErr := fmt.Errorf("error building update expression: %v", err.Error())
-		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Data:       "",
-			LogMessage: newErr.Error(),
-		}), newErr
-	}
-
-	updateInput := &dynamodb.UpdateItemInput{
-		TableName:                 aws.String(cfg.ProductsTable),
-		Key:                       avMap,
-		ExpressionAttributeNames:  updateExpr.Names(),
-		ExpressionAttributeValues: updateExpr.Values(),
-		UpdateExpression:          updateExpr.Update(),
-	}
-	_, err = awsSvc.DDBClient.UpdateItem(ctx, updateInput)
-	if err != nil {
-		newErr := fmt.Errorf("error updating item with id: %v", id)
-		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Data:       "",
-			LogMessage: newErr.Error(),
-		}), newErr
-	}
-
-	msj := fmt.Sprintf("product with id: %v, was successfully updated", id)
-	return utils.SendOK(&utils.APIResponse{
-		StatusCode: 200,
-		Data:       msj,
-		LogMessage: msj,
-	}), nil
-}
-
-func deleteProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
-	id := request.PathParameters["id"]
-	if len(id) == 0 {
-		err := errors.New("empty id on path params")
-		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 400,
-			Data:       "",
-			LogMessage: err.Error(),
-		}), err
-	}
-
-	keyEx := expression.Key("Id").Equal(expression.Value(id))
-	expr, err := expression.NewBuilder().WithKeyCondition(keyEx).Build()
+	expr, err := expression.NewBuilder().WithKeyCondition(
+		expression.
+			Key("id").Equal(expression.Value(id)),
+	).Build()
 	if err != nil {
 		newErr := fmt.Errorf("error building query expression: %v", err.Error())
 		return utils.SendErr(&utils.APIResponse{
@@ -353,6 +128,7 @@ func deleteProduct(ctx context.Context, request events.APIGatewayProxyRequest, c
 		KeyConditionExpression:    expr.KeyCondition(),
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),
+		Limit:                     aws.Int32(1), // expecting one record only
 	}
 
 	queryOutput, err := awsSvc.DDBClient.Query(ctx, queryInput)
@@ -362,29 +138,78 @@ func deleteProduct(ctx context.Context, request events.APIGatewayProxyRequest, c
 			StatusCode: 500,
 			Data:       "",
 			LogMessage: newErr.Error(),
-		}), newErr
+		}), err
 	}
 
 	if len(queryOutput.Items) == 0 {
 		err := fmt.Errorf("no entries found with id: %v", id)
 		return utils.SendErr(&utils.APIResponse{
 			StatusCode: 500,
-			Data:       err.Error(),
-			LogMessage: err.Error(),
-		}), err
-	} else if len(queryOutput.Items) > 1 {
-		err := fmt.Errorf("duplicate entries found for id: %v", id)
-		return utils.SendErr(&utils.APIResponse{
-			StatusCode: 500,
-			Data:       err.Error(),
+			Data:       "",
 			LogMessage: err.Error(),
 		}), err
 	}
 
-	items := []Item{}
-	err = attributevalue.UnmarshalListOfMaps(queryOutput.Items, &items)
+	item := new(Item)
+	err = attributevalue.UnmarshalMap(queryOutput.Items[0], item)
 	if err != nil {
 		newErr := fmt.Errorf("error unmarshalling query output: %v", err.Error())
+		return utils.SendErr(&utils.APIResponse{
+			StatusCode: 500,
+			Data:       "",
+			LogMessage: newErr.Error(),
+		}), err
+	}
+
+	out, err := json.Marshal(item)
+	if err != nil {
+		newErr := fmt.Errorf("error marshalling item: %v", err.Error())
+		return utils.SendErr(&utils.APIResponse{
+			StatusCode: 500,
+			Data:       "",
+			LogMessage: newErr.Error(),
+		}), err
+	}
+
+	return utils.SendOK(&utils.APIResponse{
+		StatusCode: 200,
+		Data:       string(out),
+		LogMessage: string(out),
+	}), nil
+}
+
+func updateProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg *config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
+	id := request.PathParameters["id"]
+	if len(id) == 0 {
+		err := errors.New("empty id on path params")
+		return utils.SendErr(&utils.APIResponse{
+			StatusCode: 400,
+			Data:       "",
+			LogMessage: err.Error(),
+		}), err
+	}
+
+	product := new(Product)
+	err := json.NewDecoder(strings.NewReader(request.Body)).Decode(product)
+	if err != nil {
+		newErr := fmt.Errorf("error decoding request body: %v", err.Error())
+		return utils.SendErr(&utils.APIResponse{
+			StatusCode: 400,
+			Data:       "",
+			LogMessage: newErr.Error(),
+		}), newErr
+	}
+
+	expr, err := expression.NewBuilder().WithUpdate(
+		expression.
+			Set(expression.Name("name"), expression.Value(product.Name)).
+			Set(expression.Name("description"), expression.Value(product.Description)),
+	).WithCondition(
+		expression.
+			AttributeExists(expression.Name("id")),
+	).Build()
+	if err != nil {
+		newErr := fmt.Errorf("error building update expression: %v", err.Error())
 		return utils.SendErr(&utils.APIResponse{
 			StatusCode: 500,
 			Data:       "",
@@ -392,13 +217,51 @@ func deleteProduct(ctx context.Context, request events.APIGatewayProxyRequest, c
 		}), newErr
 	}
 
-	key := Key{
-		Id:           items[0].Id,
-		DateModified: items[0].DateModified,
+	updateInput := &dynamodb.UpdateItemInput{
+		TableName: aws.String(cfg.ProductsTable),
+		Key: map[string]types.AttributeValue{
+			"id": &types.AttributeValueMemberS{Value: id},
+		},
+		UpdateExpression:          expr.Update(),
+		ExpressionAttributeNames:  expr.Names(),
+		ExpressionAttributeValues: expr.Values(),
+		ConditionExpression:       expr.Condition(),
 	}
-	avMap, err := attributevalue.MarshalMap(key)
+	_, err = awsSvc.DDBClient.UpdateItem(ctx, updateInput)
 	if err != nil {
-		newErr := fmt.Errorf("error mapping attribute values: %v", err.Error())
+		newErr := fmt.Errorf("error updating item with id: %v. error: %v", id, err)
+		return utils.SendErr(&utils.APIResponse{
+			StatusCode: 500,
+			Data:       newErr.Error(),
+			LogMessage: newErr.Error(),
+		}), newErr
+	}
+
+	msj := fmt.Sprintf("product with id: %v, was successfully updated", id)
+	return utils.SendOK(&utils.APIResponse{
+		StatusCode: 200,
+		Data:       msj,
+		LogMessage: msj,
+	}), nil
+}
+
+func deleteProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg *config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
+	id := request.PathParameters["id"]
+	if len(id) == 0 {
+		err := errors.New("empty id on path params")
+		return utils.SendErr(&utils.APIResponse{
+			StatusCode: 400,
+			Data:       "",
+			LogMessage: err.Error(),
+		}), err
+	}
+
+	expr, err := expression.NewBuilder().WithCondition(
+		expression.
+			AttributeExists(expression.Name("id")),
+	).Build()
+	if err != nil {
+		newErr := fmt.Errorf("error building condition expression: %v", err.Error())
 		return utils.SendErr(&utils.APIResponse{
 			StatusCode: 500,
 			Data:       "",
@@ -408,7 +271,12 @@ func deleteProduct(ctx context.Context, request events.APIGatewayProxyRequest, c
 
 	deleteInput := &dynamodb.DeleteItemInput{
 		TableName: aws.String(cfg.ProductsTable),
-		Key:       avMap,
+		Key: map[string]types.AttributeValue{
+			"id": &types.AttributeValueMemberS{Value: id},
+		},
+		ExpressionAttributeNames:  expr.Names(),
+		ExpressionAttributeValues: expr.Values(),
+		ConditionExpression:       expr.Condition(),
 	}
 	_, err = awsSvc.DDBClient.DeleteItem(ctx, deleteInput)
 	if err != nil {
