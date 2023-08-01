@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -51,11 +50,11 @@ func ProductsHandler(request events.APIGatewayProxyRequest) (events.APIGatewayPr
 	case http.MethodDelete:
 		return products.DeleteHandler(ctx, request, cfg, awsSvc)
 	default:
-		err := errors.New("method not defined")
+		msj := fmt.Sprint("method not defined") //nolint:all
 		return utils.SendErr(&utils.APIResponse{
 			StatusCode: http.StatusInternalServerError,
-			Data:       err.Error(),
-			LogMessage: err.Error(),
+			Data:       msj,
+			LogMessage: msj,
 		})
 	}
 }
