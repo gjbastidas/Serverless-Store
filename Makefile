@@ -1,8 +1,8 @@
 export MAIN_PATH = $$PWD
 export DEV_INFRA_PATH = backend/environments/dev
-export PRODUCTS_API_PATH = backend/store_apis/pkg/products
+export AWS_PKG_PATH = backend/store_apis/pkg/aws
 
-products-mock-generate:
+ddb-mock-generate:
 	@ if [ -z "$$GOPATH" ]; then \
 			echo "check for empty GOPATH environment variable" && exit 1; \
 		fi && \
@@ -10,8 +10,8 @@ products-mock-generate:
 		if [ ! -f "$$MOCKGEN" ]; then \
 			echo "check gomock installation" && exit 1; \
 		fi && \
-		cd "$$PRODUCTS_API_PATH" && \
-		$$MOCKGEN -source=iface.go -destination=mocks.go -package=products
+		cd "$$AWS_PKG_PATH" && \
+		$$MOCKGEN -source=dynamodb.go -destination=mocks/dynamodb.go
 
 tf-destroy-dev:
 	@ cd "$$DEV_INFRA_PATH" && \
