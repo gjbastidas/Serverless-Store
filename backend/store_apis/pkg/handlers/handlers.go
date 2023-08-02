@@ -40,15 +40,18 @@ func ProductsHandler(request events.APIGatewayProxyRequest) (events.APIGatewayPr
 		})
 	}
 
+	var productSvc products.IProduct
+
+	// method routes
 	switch request.HTTPMethod {
 	case http.MethodPost:
-		return products.PostHandler(ctx, request, cfg, awsSvc)
+		return products.Post(ctx, request, productSvc, cfg, awsSvc)
 	case http.MethodGet:
-		return products.GetHandler(ctx, request, cfg, awsSvc)
+		return products.Get(ctx, request, productSvc, cfg, awsSvc)
 	case http.MethodPut:
-		return products.UpdateHandler(ctx, request, cfg, awsSvc)
+		return products.Put(ctx, request, productSvc, cfg, awsSvc)
 	case http.MethodDelete:
-		return products.DeleteHandler(ctx, request, cfg, awsSvc)
+		return products.Delete(ctx, request, productSvc, cfg, awsSvc)
 	default:
 		msj := fmt.Sprint("method not defined") //nolint:all
 		return utils.SendErr(&utils.APIResponse{

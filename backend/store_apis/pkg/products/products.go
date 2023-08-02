@@ -33,7 +33,7 @@ type Item struct {
 	Description  string `dynamodbav:"description"`
 }
 
-func (p *Product) createProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg *config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
+func (p *Product) createOneProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg *config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
 	product := new(Product)
 	if err := json.NewDecoder(strings.NewReader(request.Body)).Decode(product); err != nil {
 		msj := fmt.Sprintf("error decoding request body: %v", err.Error())
@@ -83,7 +83,7 @@ func (p *Product) createProduct(ctx context.Context, request events.APIGatewayPr
 	})
 }
 
-func (p *Product) readProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg *config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
+func (p *Product) readOneProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg *config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
 	id := request.PathParameters["id"]
 	if len(id) == 0 {
 		msj := fmt.Sprint("empty id on path params") //nolint:all
@@ -162,7 +162,7 @@ func (p *Product) readProduct(ctx context.Context, request events.APIGatewayProx
 	})
 }
 
-func (p *Product) updateProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg *config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
+func (p *Product) updateOneProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg *config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
 	id := request.PathParameters["id"]
 	if len(id) == 0 {
 		msj := fmt.Sprint("empty id on path params") //nolint:all
@@ -229,7 +229,7 @@ func (p *Product) updateProduct(ctx context.Context, request events.APIGatewayPr
 	})
 }
 
-func (p *Product) deleteProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg *config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
+func (p *Product) deleteOneProduct(ctx context.Context, request events.APIGatewayProxyRequest, cfg *config.Cfg, awsSvc *aws_services.AWS) (events.APIGatewayProxyResponse, error) {
 	id := request.PathParameters["id"]
 	if len(id) == 0 {
 		msj := fmt.Sprintf("empty id on path params") //nolint:all
