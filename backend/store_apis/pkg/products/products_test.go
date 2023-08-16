@@ -1,50 +1,62 @@
 package products
 
 import (
-	"fmt"
+	"context"
 	"net/http"
+	"os"
+	"store_apis/pkg/config"
 	"testing"
 
+	aws_services "store_apis/pkg/aws"
+	mock_aws_services "store_apis/pkg/aws/mocks"
+
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/kelseyhightower/envconfig"
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
 
-func TestCreateProduct(t *testing.T) {
-	subtests := []struct {
-		name             string
-		expectedResponse string
-		expectedCode     int64
-	}{
-		{
-			name:             "happy_path",
-			expectedCode:     http.StatusCreated,
-			expectedResponse: "expected",
-		},
+func Test_CreateOneProduct_ReturnOK(t *testing.T) {
+	ctx := context.TODO()
+
+	body := `
+	{
+		"name": "one product",
+  	"description": "one product description"
 	}
+	`
+
+	req := events.APIGatewayProxyRequest{
+		Headers:    map[string]string{"content-type": "application/json"},
+		Resource:   "/products",
+		Path:       "/products",
+		HTTPMethod: http.MethodPost,
+		Body:       body,
+	}
+
+	cfg := new(config.Cfg)
+	os.Setenv("PRODUCTS_TABLE", "test")
+	err := envconfig.Process("", cfg)
+	assert.NoError(t, err)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	for _, st := range subtests {
-		t.Run(st.name, func(t *testing.T) {
-			fmt.Print("not implemented")
-		})
+	mockDdbClient := mock_aws_services.NewMockDynamoDBClientAPI(ctrl)
+
+	mockDdbClient.
+		EXPECT().
+		PutItem(gomock.Any(), gomock.Any()).
+		Return(nil, nil)
+
+	awsSvc := &aws_services.AWS{
+		DDBClient: mockDdbClient,
 	}
-}
 
-func TestReadProduct(t *testing.T) {
-	t.Run("read product", func(t *testing.T) {
-		fmt.Print("not implemented")
-	})
-}
+	p := new(Product)
+	resp, err := p.createOneProduct(ctx, req, cfg, awsSvc)
+	assert.NoError(t, err)
 
-func TestUpdateProduct(t *testing.T) {
-	t.Run("update product", func(t *testing.T) {
-		fmt.Print("not implemented")
-	})
-}
-
-func TestDeleteProduct(t *testing.T) {
-	t.Run("delete product", func(t *testing.T) {
-		fmt.Print("not implemented")
-	})
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	assert.Contains(t, resp.Body, "successfully created product with id:")
 }
