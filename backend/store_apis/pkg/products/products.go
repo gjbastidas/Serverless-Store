@@ -19,11 +19,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/google/uuid"
+	"gopkg.in/validator.v2"
 )
 
 type Product struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	Name        string `json:"name" validate:"nonzero"`
+	Description string `json:"description" validate:"nonzero"`
 }
 
 type Item struct {
@@ -37,6 +38,15 @@ func (p *Product) createOneProduct(ctx context.Context, request events.APIGatewa
 	product := new(Product)
 	if err := json.NewDecoder(strings.NewReader(request.Body)).Decode(product); err != nil {
 		msj := fmt.Sprintf("error decoding request body: %v", err.Error())
+		return utils.SendErr(&utils.APIResponse{
+			StatusCode: http.StatusBadRequest,
+			Data:       msj,
+			LogMessage: msj,
+		})
+	}
+
+	if err := validator.Validate(product); err != nil {
+		msj := "error product validation"
 		return utils.SendErr(&utils.APIResponse{
 			StatusCode: http.StatusBadRequest,
 			Data:       msj,

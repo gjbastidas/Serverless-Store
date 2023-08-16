@@ -14,6 +14,7 @@ require (
 	github.com/rs/zerolog v1.29.1
 	github.com/stretchr/testify v1.7.2
 	go.uber.org/mock v0.2.0
+	gopkg.in/validator.v2 v2.0.1
 )
 
 require (
